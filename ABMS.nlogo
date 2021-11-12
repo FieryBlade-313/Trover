@@ -1,14 +1,57 @@
 extensions [array]
-globals [
-  asize heightN smoothN
-]
+
+breed [searchers searcher]
+
+searchers-own [heuristics]
+
+globals [terrain initial-index]
+
+to-report get-patch-by-index [index]
+  report patch index 0
+end
+
+to setup-default-searchers-parameters
+
+  let initial-patch get-patch-by-index initial-index
+
+  ask searchers [
+
+    set color red
+    set shape "circle"
+    move-to initial-patch
+    set heuristics (list 0)
+  ]
+
+end
+
+to setup-searchers-heuristics
+  let heuristics-size 3
+
+  ask searchers [
+
+    foreach n-values heuristics-size [i -> i] [
+      index ->
+      set heuristics insert-item index heuristics (random max-heuristics-value + 1)
+    ]
+
+    set heuristics remove-item heuristics-size heuristics
+    show heuristics
+
+  ]
+end
+
+to setup-searcher [amount]
+  create-searchers amount
+  setup-default-searchers-parameters
+  setup-searchers-heuristics
+end
 
 to setup
   clear-all
-  set asize 0
-  set heightN 9
+  set initial-index 0
   setup-check
-  go
+
+  setup-searcher 1
   reset-ticks
 end
 
@@ -92,17 +135,41 @@ to setup-check
   ;output-show value
   ;output-print value
 end
-to go
-    ;let a n-values a-size [0]
-  ;foreach n-values a-size [i -> i][
-  ; i -> ask patch i 0 [ set pcolor black + i]
- ; ]
+
+to move-searcher [target-index]
+  move-to get-patch-by-index target-index
+end
+to go-searcher
+  let curr-index pxcor
+  let found false
+  let heuristics-index 0
+  let heuristics-size count heuristics
+
+  while [ not found ] [
+    let jump-size item heuristics-index heuristics
+
+    let forward-index curr-index + jump-size mod a-size
+    let backward-index curr-index - jump-size mod a-size
+
+    let max-val-index forward-index
+
+    if item max-val-index terrain < item backward-index terrain [ set max-val-index backward-index ]
+
+    if item max-val-index terrain > item curr-index terrain [
+      move-searcher max-val-index
+      set found true
+    ]
+
+    set heuristics-index heuristics-index + 1
+
+    if heuristics-index = heuristics-size [ set found true ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-647
+570
 30
 -1
 -1
@@ -117,7 +184,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-38
+31
 0
 0
 0
@@ -135,7 +202,7 @@ a-size
 a-size
 0
 100
-39.0
+32.0
 1
 1
 NIL
@@ -167,7 +234,7 @@ smooth
 smooth
 0
 7
-0.0
+4.0
 1
 1
 NIL
@@ -183,6 +250,21 @@ height
 0
 100
 100.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+298
+90
+470
+123
+max-heuristics-value
+max-heuristics-value
+1
+15
+12.0
 1
 1
 NIL
@@ -530,7 +612,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.1
+NetLogo 6.2.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

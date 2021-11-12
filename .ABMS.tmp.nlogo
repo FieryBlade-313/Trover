@@ -1,70 +1,59 @@
 extensions [array]
 
-globals [
-  a-size heightN smoothN
-]
+breed [searchers searcher]
 
-breed [people person]
+searchers-own [heuristics]
 
-people-own [heuristic-list]
+globals [terrain initial-index]
+
+to-report get-patch-by-index [index]
+  report patch index 0
+end
+
+to setup-default-searchers-parameters
+
+  let initial-patch get-patch-by-index initial-index
+
+  ask searchers [
+
+    set color red
+    set shape "circle"
+    move-to initial-patch
+    set heuristics (list 0)
+  ]
+
+end
+
+to setup-searchers-heuristics
+  let heuristics-size 3
+
+  ask searchers [
+
+    foreach n-values heuristics-size [i -> i] [
+      index ->
+      set heuristics insert-item index heuristics (random max-heuristics-value + 1)
+    ]
+
+    set heuristics remove-item heuristics-size heuristics
+    show heuristics
+
+  ]
+end
+
+to setup-searcher [amount]
+  create-searchers amount
+  setup-default-searchers-parameters
+  setup-searchers-heuristics
+end
 
 to setup
   clear-all
-
-   create-people initial-number-people [ ;; create the people, then initialize their variables
-    ;; Initial Properties of People
-    set shape "Person"
-    set color white
-    set size 1
-    setxy random-xcor random-ycor
-
-    ;; Heuristics list values for agents
-    set heuristic-list (list (random 12) (random 12) (random 12))
-
-     set a-size 0
-     set heightN 9
-
-  ]
-
-end
-
-
-to go
+  set initial-index 0
   setup-check
-  ask people [ move ]
+
+  setup-searcher 1
+  reset-ticks
 end
-
-
-
-to move
-  ;; Check for the Hike value
-  let a n-values a-size [0]
-  ; let listB (heuristic-list)
-  let index 0
-  let curr 0
-  let temp 0
-  let temp1 0
-  let temp2 0
-  let j 0
-  let x 0
-
-  while [ index < a-size - 1 ] [
-   ask people [
-      move-to one-of a
-    ]
-
-    set temp item index a
-    while [ j < 3 ] [
-      set temp1 item (temp + item j heuristic-list ) a
-      if ( temp < temp1 ) [
-        move-to patch pxcor pycor ]
-
-      set j j + 1
-    ]
-  set index index + 1
-  ]
-end
-
 
 to setup-check
   ;let a array:from-list n-values a-size [0]
@@ -81,22 +70,22 @@ to setup-check
   let nex 0
   let diff 0
   ;print a
-  ;array:set a 0 random heightN
+  ;array:set a 0 random height
   ;print array:item a 0
 
   while [ current < a-size - 1]  [
    ifelse (current + nextmove) < a-size[
-   set a replace-item (current + nextmove) a (random-float heightN)
-     ;show next
+   set a replace-item (current + nextmove) a (random-float height)
+     show next
      ; show y
      ; show current
      ; show y
-     ;show nextmove
+     show nextmove
       if(next - current) > 1[
         set ran next - current - 1
        set nval item current a
         set nex current  + 1
-        ;show y
+        show y
         ;show (next - current + 1)
         set diff (item next a - item current a) / (next - current)
         foreach n-values ran [j -> j] [
@@ -113,7 +102,7 @@ to setup-check
        set nval item current a
         set nex current  + 1
         ;show y
-        ;show n
+      show nextmove
         ;show (next - current + 1)
         set diff (item 0 a - item current a) / ((a-size) - current)
         foreach n-values ran [j -> j] [
@@ -123,7 +112,7 @@ to setup-check
           set current (a-size - 1)
     ]]
      ;show nextmove
-    set nextmove random (2 * smoothN) + 1
+    set nextmove random (2 * smooth) + 1
     set next (current + nextmove)
 
   ]
@@ -132,76 +121,101 @@ to setup-check
   print a
   foreach n-values a-size [k -> k][
 
-   k -> ask patch k 0 [ set pcolor scale-color black (item k a) 0 heightN]
+   k -> ask patch k 0 [ set pcolor scale-color black (item k a) 0 height]
     ;show k
     ;show item k a
   ]
      ;let a n-values a-size [0]
 
-  ;show random  heightN
-  ;set a-size 10
+  ;show random  height
+  ;set asize 10
   ;let value 1
-  ;set value a-size
-  ;print a-size
+  ;set value asize
+  ;print asize
   ;output-show value
   ;output-print value
 end
 
+to move-searcher [target-index]
+  move-to get-patch-by-index target-index
+end
+to go-searcher
+  let curr-index pxcor
+  let found false
+  let heuristics-index 0
+  let heuristics-size count heuristics
 
+  while [ not found ] [
+    let jump-size item heuristics-index heuristics
 
+    let forward-index curr-index + jump-size mod a-size
+    let backward-index curr-index - jump-size mod a-size
 
+    let max-val-index forward-index
 
+    if item max-val-index terrain < item backward-index terrain [ set max-val-index backward-index ]
 
+    if item max-val-index terrain > item curr-index terrain [
+       max-val-index
 
+      set found true
+    ]
+
+    set heuristics-index heuristics-index + 1
+
+    if heuristics-index = heuristics-size [ set found true ]
+
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-233
+210
 10
-703
-481
+570
+30
 -1
 -1
-14.0
+11.0
 1
 10
 1
 1
 1
 0
+1
+1
+1
+0
+31
 0
 0
-1
--16
-16
--16
-16
-1
-1
+0
+0
 1
 ticks
 30.0
 
 SLIDER
-15
+13
 32
-194
+185
 65
-initial-number-people
-initial-number-people
+a-size
+a-size
 0
-1000
-100.0
+100
+32.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-28
-126
-92
-159
-Setup
+3
+235
+66
+268
+NIL
 setup
 NIL
 1
@@ -213,38 +227,87 @@ NIL
 NIL
 1
 
-BUTTON
-27
-179
+SLIDER
+10
 90
-212
-Go
-go
-NIL
+183
+123
+smooth
+smooth
+0
+7
+4.0
 1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
 1
+NIL
+HORIZONTAL
+
+SLIDER
+12
+147
+185
+180
+height
+height
+0
+100
+100.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+298
+90
+470
+123
+max-heuristics-value
+max-heuristics-value
+1
+15
+12.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
 
-This example is shows temporary test project code.
+(a general understanding of what the model is trying to show or explain)
+
+## HOW IT WORKS
+
+(what rules the agents use to create the overall behavior of the model)
+
+## HOW TO USE IT
+
+(how to use the model, including a description of each of the items in the Interface tab)
+
+## THINGS TO NOTICE
+
+(suggested things for the user to notice while running the model)
+
+## THINGS TO TRY
+
+(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
 
 ## EXTENDING THE MODEL
 
-Animate the turtles as they move from node to node.
+(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+
+## NETLOGO FEATURES
+
+(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
 
 ## RELATED MODELS
 
-* Lattice-Walking Turtles Example
-* Grid-Walking Turtles Example
+(models in the NetLogo Models Library and elsewhere which are of related interest)
 
-<!-- 2007 -->
+## CREDITS AND REFERENCES
+
+(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
 @#$#@#$#@
 default
 true
@@ -438,6 +501,22 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
+sheep
+false
+15
+Circle -1 true true 203 65 88
+Circle -1 true true 70 65 162
+Circle -1 true true 150 105 120
+Polygon -7500403 true false 218 120 240 165 255 165 278 120
+Circle -7500403 true false 214 72 67
+Rectangle -1 true true 164 223 179 298
+Polygon -1 true true 45 285 30 285 30 240 15 195 45 210
+Circle -1 true true 3 83 150
+Rectangle -1 true true 65 221 80 296
+Polygon -1 true true 195 285 210 285 210 240 240 210 195 210
+Polygon -7500403 true false 276 85 285 105 302 99 294 83
+Polygon -7500403 true false 219 85 210 105 193 99 201 83
+
 square
 false
 0
@@ -522,6 +601,13 @@ Line -7500403 true 40 84 269 221
 Line -7500403 true 40 216 269 79
 Line -7500403 true 84 40 221 269
 
+wolf
+false
+0
+Polygon -16777216 true false 253 133 245 131 245 133
+Polygon -7500403 true true 2 194 13 197 30 191 38 193 38 205 20 226 20 257 27 265 38 266 40 260 31 253 31 230 60 206 68 198 75 209 66 228 65 243 82 261 84 268 100 267 103 261 77 239 79 231 100 207 98 196 119 201 143 202 160 195 166 210 172 213 173 238 167 251 160 248 154 265 169 264 178 247 186 240 198 260 200 271 217 271 219 262 207 258 195 230 192 198 210 184 227 164 242 144 259 145 284 151 277 141 293 140 299 134 297 127 273 119 270 105
+Polygon -7500403 true true -1 195 14 180 36 166 40 153 53 140 82 131 134 133 159 126 188 115 227 108 236 102 238 98 268 86 269 92 281 87 269 103 269 113
+
 x
 false
 0
@@ -530,8 +616,6 @@ Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
 NetLogo 6.2.0
 @#$#@#$#@
-random-seed 2
-setup
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
