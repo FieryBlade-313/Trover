@@ -4,7 +4,7 @@ breed [searchers searcher]
 
 searchers-own [heuristics]
 
-globals [terrain initial-index]
+globals [ initial-index terrain-points]
 
 to-report get-patch-by-index [index]
   report patch index 0
@@ -49,93 +49,60 @@ end
 to setup
   clear-all
   set initial-index 0
-  setup-check
-
+  setup-terrain
+  set-patch-shades
   setup-searcher 1
   reset-ticks
 end
 
-to setup-check
-  ;let a array:from-list n-values a-size [0]
-  resize-world (0) (a-size - 1 ) 0 0
-  let a n-values a-size [0]
+to setup-terrain
+  set terrain-points n-values terrain-size [0]
   let nextmove 0
-  ;let move 0
   let current 0
-  let y "Hello"
   let next 0
   let ran 0
-  let arr 0
   let nval 0
   let nex 0
   let diff 0
-  ;print a
-  ;array:set a 0 random height
-  ;print array:item a 0
 
-  while [ current < a-size - 1]  [
-   ifelse (current + nextmove) < a-size[
-   set a replace-item (current + nextmove) a (random-float height)
-     show next
-     ; show y
-     ; show current
-     ; show y
-     show nextmove
+  while [ current < terrain-size - 1]  [
+   ifelse (current + nextmove) < terrain-size[
+   set terrain-points replace-item (current + nextmove) terrain-points (random-float height)
       if(next - current) > 1[
         set ran next - current - 1
-       set nval item current a
+       set nval item current terrain-points
         set nex current  + 1
-        show y
-        ;show (next - current + 1)
-        set diff (item next a - item current a) / (next - current)
+        set diff (item next terrain-points - item current terrain-points) / (next - current)
         foreach n-values ran [j -> j] [
-          j -> set a  replace-item nex  a (nval + diff )
-          set nval item nex a
+          j -> set terrain-points  replace-item nex  terrain-points (nval + diff )
+          set nval item nex terrain-points
           set nex nex + 1
         ]
       ]
       set current (current + nextmove)
-
     ]
     [
-         set ran (a-size) - current - 1
-       set nval item current a
+         set ran (terrain-size) - current - 1
+       set nval item current terrain-points
         set nex current  + 1
-        ;show y
-      show nextmove
-        ;show (next - current + 1)
-        set diff (item 0 a - item current a) / ((a-size) - current)
+        set diff (item 0 terrain-points - item current terrain-points) / ((terrain-size) - current)
         foreach n-values ran [j -> j] [
-          j -> set a  replace-item nex  a (nval + diff )
-          set nval item nex a
+          j -> set terrain-points  replace-item nex  terrain-points (nval + diff )
+          set nval item nex terrain-points
           set nex nex + 1
-          set current (a-size - 1)
+          set current (terrain-size - 1)
     ]]
-     ;show nextmove
     set nextmove random (2 * smooth) + 1
     set next (current + nextmove)
-
   ]
 
-  show a
-  print a
-  foreach n-values a-size [k -> k][
-
-   k -> ask patch k 0 [ set pcolor scale-color black (item k a) 0 height]
-    ;show k
-    ;show item k a
-  ]
-     ;let a n-values a-size [0]
-
-  ;show random  height
-  ;set asize 10
-  ;let value 1
-  ;set value asize
-  ;print asize
-  ;output-show value
-  ;output-print value
 end
-
+to set-patch-shades
+  resize-world (0) (terrain-size - 1 ) 0 0
+  foreach n-values terrain-size [k -> k][
+   k -> ask patch k 0 [ set pcolor scale-color black (item k terrain-points) 0 height]
+  ]
+end
 to move-searcher [target-index]
   move-to get-patch-by-index target-index
 end
@@ -148,14 +115,14 @@ to go-searcher
   while [ not found ] [
     let jump-size item heuristics-index heuristics
 
-    let forward-index curr-index + jump-size mod a-size
-    let backward-index curr-index - jump-size mod a-size
+    let forward-index curr-index + jump-size mod terrain-size
+    let backward-index curr-index - jump-size mod terrain-size
 
     let max-val-index forward-index
 
-    if item max-val-index terrain < item backward-index terrain [ set max-val-index backward-index ]
+    if item max-val-index terrain-points < item backward-index terrain-points [ set max-val-index backward-index ]
 
-    if item max-val-index terrain > item curr-index terrain [
+    if item max-val-index terrain-points > item curr-index terrain-points [
       move-searcher max-val-index
       set found true
     ]
@@ -169,7 +136,7 @@ end
 GRAPHICS-WINDOW
 210
 10
-570
+306
 30
 -1
 -1
@@ -184,7 +151,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-31
+7
 0
 0
 0
@@ -198,11 +165,11 @@ SLIDER
 32
 185
 65
-a-size
-a-size
+terrain-size
+terrain-size
 0
 100
-32.0
+8.0
 1
 1
 NIL
@@ -211,7 +178,7 @@ HORIZONTAL
 BUTTON
 3
 235
-66
+107
 268
 NIL
 setup
@@ -234,7 +201,7 @@ smooth
 smooth
 0
 7
-4.0
+7.0
 1
 1
 NIL
@@ -264,7 +231,7 @@ max-heuristics-value
 max-heuristics-value
 1
 15
-12.0
+15.0
 1
 1
 NIL
@@ -612,7 +579,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.0
+NetLogo 6.2.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
