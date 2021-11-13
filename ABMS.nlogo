@@ -63,7 +63,7 @@ to setup
   set initial-index 0
   setup-terrain
   set-patch-shades
-  setup-searcher 5
+  setup-searcher 1
   reset-ticks
 end
 
@@ -154,7 +154,7 @@ end
 GRAPHICS-WINDOW
 210
 10
-1318
+768
 30
 -1
 -1
@@ -169,7 +169,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-99
+49
 0
 0
 0
@@ -187,7 +187,7 @@ terrain-size
 terrain-size
 0
 100
-100.0
+50.0
 1
 1
 NIL
