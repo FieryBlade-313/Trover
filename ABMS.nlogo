@@ -26,17 +26,29 @@ end
 
 to setup-searchers-heuristics
   let heuristics-size 3
+  if heuristics-size > max-heuristics-value [
+    show "Warning: heuristics-size should NOT be greater than max-heuristics-value"
+    ask searchers [
+      set heuristics ( shuffle n-values max-heuristics-value [i -> i] )
+    ]
+    stop
+  ]
+
 
   ask searchers [
 
     foreach n-values heuristics-size [i -> i] [
       index ->
-      set heuristics insert-item index heuristics (random max-heuristics-value + 1)
+
+      let new-heuristics-val ( random max-heuristics-value + 1 )
+      while [ member? new-heuristics-val heuristics ] [
+        set new-heuristics-val ( random max-heuristics-value + 1 )
+      ]
+
+      set heuristics insert-item index heuristics new-heuristics-val
     ]
 
     set heuristics remove-item heuristics-size heuristics
-    show heuristics
-
   ]
 end
 
@@ -51,7 +63,7 @@ to setup
   set initial-index 0
   setup-terrain
   set-patch-shades
-  setup-searcher 1
+  setup-searcher 5
   reset-ticks
 end
 
@@ -92,31 +104,34 @@ to setup-terrain
           set nex nex + 1
           set current (terrain-size - 1)
     ]]
-    set nextmove random (2 * smooth) + 1
+    set nextmove random (2 * smoothing-factor) + 1
     set next (current + nextmove)
   ]
 
 end
+
 to set-patch-shades
   resize-world (0) (terrain-size - 1 ) 0 0
   foreach n-values terrain-size [k -> k][
    k -> ask patch k 0 [ set pcolor scale-color black (item k terrain-points) 0 height]
   ]
 end
+
 to move-searcher [target-index]
   move-to get-patch-by-index target-index
 end
+
 to go-searcher
   let curr-index pxcor
   let found false
   let heuristics-index 0
-  let heuristics-size count heuristics
+  let heuristics-size length heuristics
 
   while [ not found ] [
     let jump-size item heuristics-index heuristics
 
-    let forward-index curr-index + jump-size mod terrain-size
-    let backward-index curr-index - jump-size mod terrain-size
+    let forward-index ( curr-index + jump-size ) mod terrain-size
+    let backward-index ( curr-index - jump-size ) mod terrain-size
 
     let max-val-index forward-index
 
@@ -129,14 +144,17 @@ to go-searcher
 
     set heuristics-index heuristics-index + 1
 
-    if heuristics-index = heuristics-size [ set found true ]
+    if heuristics-index = heuristics-size [
+      set found true
+      show "DEBUG: No Better point in sight"
+    ]
   ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-306
+1318
 30
 -1
 -1
@@ -151,7 +169,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-7
+99
 0
 0
 0
@@ -169,7 +187,7 @@ terrain-size
 terrain-size
 0
 100
-8.0
+100.0
 1
 1
 NIL
@@ -197,11 +215,11 @@ SLIDER
 90
 183
 123
-smooth
-smooth
+smoothing-factor
+smoothing-factor
 0
 7
-7.0
+1.0
 1
 1
 NIL
@@ -231,11 +249,28 @@ max-heuristics-value
 max-heuristics-value
 1
 15
-15.0
+12.0
 1
 1
 NIL
 HORIZONTAL
+
+BUTTON
+117
+235
+233
+268
+Searchers Step
+ask searchers [ go-searcher ]
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -579,7 +614,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.1
+NetLogo 6.2.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
