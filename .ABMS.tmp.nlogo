@@ -2,9 +2,9 @@ extensions [array]
 
 breed [searchers searcher]
 
-searchers-own [heuristics score rounds]
+searchers-own [heuristics score rounds best-heuristic]
 
-globals [ initial-index terrain-points ]
+globals [ initial-index terrain-points heuristic-permutation]
 
 to-report get-patch-by-index [index]
   report patch index 0
@@ -129,7 +129,7 @@ to go-searcher
   let heuristics-size length heuristics
 
   while [ not found ] [
-    set rounds rounds + 1
+
     let jump-size item heuristics-index heuristics
 
 
@@ -137,16 +137,15 @@ to go-searcher
     let backward-index ( curr-index - jump-size ) mod terrain-size
 
     let max-val-index forward-index
-    let round-score item max-val-index terrain-points
+
 
     if item max-val-index terrain-points < item backward-index terrain-points [
       set max-val-index backward-index
-      set round-score item backward-index terrain-points
+
     ]
 
     if item max-val-index terrain-points > item curr-index terrain-points [
       move-searcher max-val-index
-      set round-score item max-val-index terrain-points
       set found true
     ]
 
@@ -157,26 +156,135 @@ to go-searcher
       show "DEBUG: No Better point in sight"
     ]
 
-    set score ( score * (rounds - 1) + round-score) / rounds
+
   ]
 end
+
+to find-bestSpot
+  let curr-index pxcor
+  let found false
+  let heuristics-index 0
+  let heuristics-size length heuristics
+
+  while [ not found ] [
+
+    let jump-size item heuristics-index heuristics
+
+
+    let forward-index ( curr-index + jump-size ) mod terrain-size
+    let backward-index ( curr-index - jump-size ) mod terrain-size
+
+    let max-val-index forward-index
+
+    if item max-val-index terrain-points < item backward-index terrain-points [
+      set max-val-index backward-index
+
+    ]
+
+    if item max-val-index terrain-points > item curr-index terrain-points [
+
+      set max-val-index forward-index
+
+    ]
+
+    ifelse max-val-index = curr-index
+    [
+       set rounds rounds + 1
+       set score ( score * (rounds - 1) + item max-val-index terrain-points ) / rounds
+       set found true
+    ]
+    [
+      move-searcher max-val-index
+    ]
+    move-searcher max-val-index
+    set heuristics-index heuristics-index + 1
+
+    if heuristics-index = heuristics-size [
+      set found true
+      show "DEBUG: No Better point in sight"
+    ]
+
+
+  ]
+
+end
+
+to-report check-repeat [ lst ]
+  let prev-len length lst
+  set lst remove-duplicates lst
+  ifelse prev-len != length lst
+    [ report true]
+    [ report false]
+
+end
+
+to setHeuristics
+  let carry 0
+  foreach heuristics
+  [
+    x ->
+    ifelse x + 1 + carry < max-heuristics-value [
+      ;increase by one
+      set carry 0
+    ] [
+      ;set to one and carry one
+      set carry 1
+    ]
+  ]
+
+  while [
+    ;check for repeating chaaracters
+    check-repeat heuristics
+  ] [
+    foreach heuristics
+    [
+      x ->
+      ifelse x + 1 + carry < max-heuristics-value [
+        ;increase by one
+        set carry 0
+      ] [
+        ;set to one and carry one
+        set carry 1
+      ]
+    ]
+  ]
+end
+
+to-report permutations  ;Return all permutations of `lst`
+  let num 1
+  let counter max-heuristics-value
+
+  while [counter > max-heuristics-value - 3]
+  [
+    set num num * counter
+  ]
+  report num
+end
+
 
 
 to eliete-group
 
-  setup-searcher 200
+  setup-searcher terrain-size
   let searchers-list [self] of searchers
+  let start-position terrain-size
 
   foreach searchers-list [
     x ->
-     let start-position 2000
-    while [start-position > 2000] [
+     let net-combinations permutations
+      set start-position start-position
       ask x [ move-to start-position ]
-      ask x [ go-searcher ]
-    ]
+      while [net-combinations > 0] [
+        ask x [setHeuristics]
+
+        ask x [ find-bestSpot ]
+      ]
   ]
 
   set searchers-list sort-on [score] searchers-list
+
+
+
 
 end
 @#$#@#$#@
@@ -216,7 +324,7 @@ terrain-size
 terrain-size
 0
 100
-50.0
+60.0
 1
 1
 NIL
