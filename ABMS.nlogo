@@ -260,6 +260,9 @@ to-report permutations  ;Return all permutations of `lst`
   report num
 end
 
+to-report take [n xs]
+  report sublist xs 0 min list n (length xs)
+end
 
 
 to eliete-group
@@ -282,6 +285,10 @@ to eliete-group
 
   set searchers-list sort-on [score] searchers-list
 
+
+  let elieteGroup take 9 searchers-list
+
+  let normalGroup n-of 9 searchers-list
 
 
 
