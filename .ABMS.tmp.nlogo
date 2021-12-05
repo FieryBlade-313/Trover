@@ -63,7 +63,7 @@ to setup
   set initial-index 0
   setup-terrain
   set-patch-shades
-  setup-searcher searcher-amount
+  setup-searcher 1
   reset-ticks
 end
 
@@ -288,7 +288,7 @@ to eliete-group
 
   let elieteGroup take 9 searchers-list
 
-  let normalGroup n-of 9 searchers-list
+  l
 
 
 
@@ -297,7 +297,7 @@ end
 GRAPHICS-WINDOW
 210
 10
-1318
+768
 30
 -1
 -1
@@ -312,7 +312,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-99
+49
 0
 0
 0
@@ -362,7 +362,7 @@ smoothing-factor
 smoothing-factor
 0
 7
-0.0
+1.0
 1
 1
 NIL
@@ -392,7 +392,7 @@ max-heuristics-value
 max-heuristics-value
 1
 15
-15.0
+12.0
 1
 1
 NIL
@@ -414,21 +414,6 @@ NIL
 NIL
 NIL
 1
-
-SLIDER
-298
-137
-470
-170
-searcher-amount
-searcher-amount
-1
-25
-25.0
-1
-1
-NIL
-HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
