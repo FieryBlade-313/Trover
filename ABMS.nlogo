@@ -63,7 +63,7 @@ to setup
   set initial-index 0
   setup-terrain
   set-patch-shades
-  setup-searcher 1
+  setup-searcher searcher-amount
   reset-ticks
 end
 
@@ -154,7 +154,7 @@ end
 GRAPHICS-WINDOW
 210
 10
-768
+1318
 30
 -1
 -1
@@ -169,7 +169,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-49
+99
 0
 0
 0
@@ -187,7 +187,7 @@ terrain-size
 terrain-size
 0
 100
-50.0
+100.0
 1
 1
 NIL
@@ -219,7 +219,7 @@ smoothing-factor
 smoothing-factor
 0
 7
-1.0
+0.0
 1
 1
 NIL
@@ -249,7 +249,7 @@ max-heuristics-value
 max-heuristics-value
 1
 15
-12.0
+15.0
 1
 1
 NIL
@@ -271,6 +271,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+298
+137
+470
+170
+searcher-amount
+searcher-amount
+1
+25
+25.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
