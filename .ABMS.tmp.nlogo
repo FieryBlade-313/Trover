@@ -2,9 +2,9 @@ extensions [array]
 
 breed [searchers searcher]
 
-searchers-own [heuristics score rounds best-heuristic]
+searchers-own [heuristics at-peak?]
 
-globals [ initial-index terrain-points heuristic-permutation]
+globals [ initial-index terrain-points heuristic-permutation best-heuristics-pool debug-current-heuristics]
 
 to-report get-patch-by-index [index]
   report patch index 0
@@ -19,7 +19,8 @@ to setup-default-searchers-parameters
     set color red
     set shape "circle"
     move-to initial-patch
-    set heuristics (list 0)
+    set heuristics []
+    set at-peak? false
   ]
 
 end
@@ -47,9 +48,8 @@ to setup-searchers-heuristics
 
       set heuristics insert-item index heuristics new-heuristics-val
     ]
-
-    set heuristics remove-item heuristics-size heuristics
   ]
+
 end
 
 to setup-searcher [amount]
@@ -61,9 +61,10 @@ end
 to setup
   clear-all
   set initial-index 0
+  set best-heuristics-pool (list list ([]) (0))
   setup-terrain
   set-patch-shades
-  setup-searcher 1
+  ;; setup-searcher searcher-amount
   reset-ticks
 end
 
@@ -95,15 +96,15 @@ to setup-terrain
       set current (current + nextmove)
     ]
     [
-         set ran (terrain-size) - current - 1
+       set ran (terrain-size) - current - 1
        set nval item current terrain-points
-        set nex current  + 1
-        set diff (item 0 terrain-points - item current terrain-points) / ((terrain-size) - current)
-        foreach n-values ran [j -> j] [
-          j -> set terrain-points  replace-item nex  terrain-points (nval + diff )
-          set nval item nex terrain-points
-          set nex nex + 1
-          set current (terrain-size - 1)
+       set nex current  + 1
+       set diff (item 0 terrain-points - item current terrain-points) / ((terrain-size) - current)
+       foreach n-values ran [j -> j] [
+         j -> set terrain-points  replace-item nex  terrain-points (nval + diff )
+         set nval item nex terrain-points
+         set nex nex + 1
+         set current (terrain-size - 1)
     ]]
     set nextmove random (2 * smoothing-factor) + 1
     set next (current + nextmove)
@@ -123,7 +124,9 @@ to move-searcher [target-index]
 end
 
 to go-searcher
-  let curr-index pxcor
+  if not at-peak?
+  [
+    let curr-index pxcor
   let found false
   let heuristics-index 0
   let heuristics-size length heuristics
@@ -153,63 +156,16 @@ to go-searcher
 
     if heuristics-index = heuristics-size [
       set found true
+      set at-peak? true
       show "DEBUG: No Better point in sight"
     ]
 
 
   ]
-end
-
-to find-bestSpot
-  let curr-index pxcor
-  let found false
-  let heuristics-index 0
-  let heuristics-size length heuristics
-
-  while [ not found ] [
-
-    let jump-size item heuristics-index heuristics
-
-
-    let forward-index ( curr-index + jump-size ) mod terrain-size
-    let backward-index ( curr-index - jump-size ) mod terrain-size
-
-    let max-val-index forward-index
-
-    if item max-val-index terrain-points < item backward-index terrain-points [
-      set max-val-index backward-index
-
-    ]
-
-    if item max-val-index terrain-points > item curr-index terrain-points [
-
-      set max-val-index forward-index
-
-    ]
-
-    ifelse max-val-index = curr-index
-    [
-       set rounds rounds + 1
-       set score ( score * (rounds - 1) + item max-val-index terrain-points ) / rounds
-       set found true
-    ]
-    [
-      move-searcher max-val-index
-    ]
-    move-searcher max-val-index
-    set heuristics-index heuristics-index + 1
-
-    if heuristics-index = heuristics-size [
-      set found true
-      show "DEBUG: No Better point in sight"
-    ]
-
-
   ]
-
 end
 
-to-report check-repeat [ lst ]
+to-report check-for-repeat [ lst ]
   let prev-len length lst
   set lst remove-duplicates lst
   ifelse prev-len != length lst
@@ -217,88 +173,150 @@ to-report check-repeat [ lst ]
     [ report false]
 end
 
-to setHeuristics
-  let carry 0
-  foreach heuristics
+to-report increment-heuristics [current-heuristics]
+  let carry 1
+  let list-size length current-heuristics
+  let i list-size - 1
+  while [ i >= 0 ]
   [
-    x ->
-    ifelse x + 1 + carry < max-heuristics-value [
-      ;increase by one
-      set carry 0
-    ] [
-      ;set to one and carry one
+    let new-value item i current-heuristics + carry
+    set carry 0
+    if new-value = max-heuristics-value + 1
+    [
+      set new-value 1
       set carry 1
     ]
+
+    set current-heuristics replace-item i current-heuristics new-value
+    set i i - 1
   ]
 
-  while [
-    ;check for repeating chaaracters
-    check-repeat heuristics
-  ] [
-    foreach heuristics
-    [
-      x ->
-      ifelse x + 1 + carry < max-heuristics-value [
-        ;increase by one
-        set carry 0
-      ] [
-        ;set to one and carry one
-        set carry 1
-      ]
-    ]
-  ]
+  report current-heuristics
 end
 
-to-report permutations  ;Return all permutations of `lst`
-  let num 1
-  let counter max-heuristics-value
-
-  while [counter > max-heuristics-value - 3]
+to-report generate-next-heuristics [current-heuristics]
+  set current-heuristics increment-heuristics current-heuristics
+  loop
   [
-    set num num * counter
+    if not check-for-repeat current-heuristics
+    [
+      report current-heuristics
+    ]
+    set current-heuristics increment-heuristics current-heuristics
   ]
-  report num
 end
 
 to-report take [n xs]
   report sublist xs 0 min list n (length xs)
 end
 
+to-report get-terminal-heuristics-by-size [list-size]
+  report n-values ifelse-value list-size < max-heuristics-value [list-size] [max-heuristics-value] [i -> max-heuristics-value - i]
+end
 
-to eliete-group
+to-report get-initial-heuristics-by-size [list-size]
+  report n-values ifelse-value list-size < max-heuristics-value [list-size] [max-heuristics-value] [i -> i + 1]
+end
 
+to-report list-equal [list1 list2]
+  if length list1 != length list2 [report false]
+  let i length list1 - 1
+  while [ i >= 0 ]
+  [
+    if item i list1 != item i list2 [report false]
+    set i i - 1
+  ]
+  report true
+end
+
+to update-searchers-heuristics [target-heuristics]
+  ask searchers [ set heuristics target-heuristics ]
+end
+
+to reset-searchers-position [searchers-list]
+  let list-size length searchers-list
+  let i 0
+  while[ i < list-size ]
+  [
+    ask item i searchers-list [
+      move-searcher i
+      set at-peak? false
+   ]
+    set i i + 1
+  ]
+end
+
+to-report get-heuristics-average-score [current-heuristics]
+  update-searchers-heuristics current-heuristics
+  while [count searchers with [at-peak?] != count searchers]
+  [
+    ask searchers [ go-searcher ]
+  ]
+  report mean [item pxcor terrain-points] of searchers
+end
+
+to insert-score [current-heuristics score]
+  let best-pool-size length best-heuristics-pool
+  let i 0
+  while [i < best-pool-size]
+  [
+    if last item i best-heuristics-pool < score
+    [
+      set best-heuristics-pool insert-item i best-heuristics-pool (list current-heuristics score)
+      if best-pool-size = team-size
+      [
+        set best-heuristics-pool remove-item team-size best-heuristics-pool
+      ]
+      stop
+    ]
+
+    set i i + 1
+  ]
+end
+
+to-report get-best-pool-mean
+  let sum-value 0
+  let i 0
+  let pool-size length best-heuristics-pool
+  while [ i < pool-size ]
+  [
+    set sum-value sum-value + last item i best-heuristics-pool
+    set i i + 1
+  ]
+  report sum-value / pool-size
+end
+
+to generate-best-heuristics
   setup-searcher terrain-size
   let searchers-list [self] of searchers
-  let start-position terrain-size
+  let list-size 3
+  let current-heuristics get-initial-heuristics-by-size list-size
+  let terminal-heuristics get-terminal-heuristics-by-size list-size
 
-  foreach searchers-list [
-    x ->
-     let net-combinations permutations
-      set start-position start-position
-      ask x [ move-to start-position ]
-      while [net-combinations > 0] [
-        ask x [setHeuristics]
+  loop [
+    set debug-current-heuristics current-heuristics
+    reset-searchers-position searchers-list
+    let score get-heuristics-average-score current-heuristics
+    insert-score current-heuristics score
+    update-plots
 
-        ask x [ find-bestSpot ]
-      ]
+    if list-equal current-heuristics terminal-heuristics
+    [ stop ]
+
+    set current-heuristics generate-next-heuristics current-heuristics
   ]
+end
 
-  set searchers-list sort-on [score] searchers-list
-
-
-  let elieteGroup take 9 searchers-list
-
-  l
-
-
-
+to create-groups
+  ;; Generate elite groups
+  ;; Generate random groups
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
-10
-768
-30
+13
+11
+22021
+31
 -1
 -1
 11.0
@@ -312,7 +330,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-49
+1999
 0
 0
 0
@@ -322,15 +340,15 @@ ticks
 30.0
 
 SLIDER
-13
-32
-185
-65
+12
+40
+184
+73
 terrain-size
 terrain-size
-0
-100
-60.0
+1
+2000
+2000.0
 1
 1
 NIL
@@ -354,25 +372,25 @@ NIL
 1
 
 SLIDER
-10
-90
-183
-123
+13
+82
+186
+115
 smoothing-factor
 smoothing-factor
 0
-7
-1.0
+20
+20.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-12
-147
-185
-180
+13
+125
+186
+158
 height
 height
 0
@@ -384,27 +402,79 @@ NIL
 HORIZONTAL
 
 SLIDER
-298
-90
-470
-123
+211
+40
+383
+73
 max-heuristics-value
 max-heuristics-value
 1
 15
-12.0
+6.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+210
+83
+382
+116
+searcher-amount
+searcher-amount
+1
+25
+25.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+242
+190
+355
+235
+Searchers at Peak
+count searchers with [ at-peak? ]
+0
+1
+11
+
+MONITOR
+365
+190
+528
+235
+Current Heuristics [DEBUG]
+debug-current-heuristics
+17
+1
+11
+
+SLIDER
+396
+40
+568
+73
+team-size
+team-size
+3
+9
+9.0
 1
 1
 NIL
 HORIZONTAL
 
 BUTTON
-117
-235
-233
-268
-Searchers Step
-ask searchers [ go-searcher ]
+4
+275
+171
+308
+Generate Best Heuristics
+generate-best-heuristics
 NIL
 1
 T
@@ -414,6 +484,68 @@ NIL
 NIL
 NIL
 1
+
+MONITOR
+244
+247
+355
+292
+Best Agents Count
+length best-heuristics-pool
+17
+1
+11
+
+PLOT
+623
+191
+959
+422
+plot 1
+iterations
+Mean value
+0.0
+10.0
+0.0
+10.0
+true
+true
+"" ""
+PENS
+"best-mean" 1.0 0 -2674135 true "" "plot get-best-pool-mean"
+
+MONITOR
+542
+190
+612
+235
+Pool mean
+get-best-pool-mean
+0
+1
+11
+
+SWITCH
+12
+190
+136
+223
+relay-mode?
+relay-mode?
+1
+1
+-1000
+
+MONITOR
+143
+190
+232
+235
+Current Mode
+ifelse-value relay-mode? [\"Relay\"] [\"Tournament\"]
+0
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -757,7 +889,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.0.4
+NetLogo 6.2.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
