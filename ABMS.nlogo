@@ -4,7 +4,7 @@ breed [searchers searcher]
 
 searchers-own [heuristics at-peak?]
 
-globals [ initial-index terrain-points heuristic-permutation best-heuristics-pool debug-current-heuristics]
+globals [ initial-index terrain-points heuristic-permutation best-heuristics-pool debug-current-heuristics current-agent-index group-position group-score current-group group-stable?]
 
 to-report get-patch-by-index [index]
   report patch index 0
@@ -61,8 +61,10 @@ end
 to setup
   clear-all
   set initial-index 0
+  set current-group []
   set best-heuristics-pool (list list ([]) (0))
   setup-terrain
+  set group-score first terrain-points
   set-patch-shades
   ;; setup-searcher searcher-amount
   reset-ticks
@@ -147,7 +149,7 @@ to go-searcher
 
     ]
 
-    if item max-val-index terrain-points > item curr-index terrain-points [
+    if item max-val-index terrain-points > item curr-index terrain-points or stochasticity? and random 101 <= error-probability  [
       move-searcher max-val-index
       set found true
     ]
@@ -287,6 +289,8 @@ to-report get-best-pool-mean
 end
 
 to generate-best-heuristics
+  let temp-stochasticity? stochasticity?
+  set stochasticity? false
   setup-searcher terrain-size
   let searchers-list [self] of searchers
   let list-size 3
@@ -298,24 +302,140 @@ to generate-best-heuristics
     reset-searchers-position searchers-list
     let score get-heuristics-average-score current-heuristics
     insert-score current-heuristics score
-    update-plots
+    ;; update-plots
 
     if list-equal current-heuristics terminal-heuristics
-    [ stop ]
+    [
+      set stochasticity? temp-stochasticity?
+      stop
+    ]
 
     set current-heuristics generate-next-heuristics current-heuristics
   ]
 end
 
-to create-groups
-  ;; Generate elite groups
-  ;; Generate random groups
+to create-group [elite-amount]
+  ask searchers [die]
+  set current-agent-index 0
+  set group-position 0
+  set group-stable? false
+  ask searchers [ set size 0 ]
+  setup-searcher team-size
+  let group [self] of searchers
+  let i 0
+  while [i < elite-amount]
+  [
+    ask item i group [set heuristics first item i best-heuristics-pool]
+    set i i + 1
+  ]
+
+  ask first group [set size 1]
+  set current-group group
+end
+
+to create-and-go-every-groups
+  foreach n-values team-size [i -> i]
+  [
+    i ->
+    create-group i
+    while[not group-stable?] [
+      go-group current-group
+    ]
+  ]
+end
+
+to go-relay [agent]
+  ask agent [go-searcher]
+end
+
+to-report get-agent-best-location [agent]
+  let i 0
+  let list-size length [heuristics] of agent
+  let curr-index [pxcor] of agent
+  while [i < list-size]
+  [
+    let jump-size item i [heuristics] of agent
+
+
+    let forward-index ( curr-index + jump-size ) mod terrain-size
+    let backward-index ( curr-index - jump-size ) mod terrain-size
+
+    let max-val-index forward-index
+
+
+    if item max-val-index terrain-points < item backward-index terrain-points [
+      set max-val-index backward-index
+    ]
+
+    if item max-val-index terrain-points > item curr-index terrain-points or stochasticity? and random 101 <= error-probability [
+      report max-val-index
+    ]
+
+    set i i + 1
+  ]
+  report [pxcor] of agent
+end
+
+to go-tournament [group]
+  let i 0
+  let best-suggestion group-position
+  while [i < team-size]
+  [
+    let agent-best-point get-agent-best-location item i group
+    if item best-suggestion terrain-points < item agent-best-point terrain-points
+    [
+      set best-suggestion agent-best-point
+    ]
+    set i i + 1
+  ]
+
+  set group-position best-suggestion
+  ask searchers [move-searcher group-position]
+end
+
+to go-group [group]
+  ifelse relay-mode?
+  [
+    if current-agent-index < team-size
+    [
+      let current-agent item current-agent-index group
+      go-relay current-agent
+      set group-position [pxcor] of current-agent
+      set group-score item [pxcor] of current-agent terrain-points
+      if [at-peak?] of current-agent
+      [
+        set current-agent-index current-agent-index + 1
+        if current-agent-index = team-size
+        [
+          set group-stable? true
+          stop
+        ]
+        ask current-agent [set size 0]
+        let next-agent item current-agent-index group
+        ask next-agent [
+          set size 1
+          move-searcher group-position
+        ]
+      ]
+    ]
+  ]
+  [
+    let prev-position group-position
+    go-tournament group
+    set group-score item group-position terrain-points
+    if prev-position = group-position
+    [
+      set group-stable? true
+      stop
+    ]
+  ]
+  tick
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 13
 11
-22021
+571
 31
 -1
 -1
@@ -330,7 +450,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-1999
+49
 0
 0
 0
@@ -346,10 +466,10 @@ SLIDER
 73
 terrain-size
 terrain-size
-1
+0
 2000
-2000.0
-1
+50.0
+50
 1
 NIL
 HORIZONTAL
@@ -380,7 +500,7 @@ smoothing-factor
 smoothing-factor
 0
 20
-20.0
+0.0
 1
 1
 NIL
@@ -410,22 +530,7 @@ max-heuristics-value
 max-heuristics-value
 1
 15
-6.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-210
-83
-382
-116
-searcher-amount
-searcher-amount
-1
-25
-25.0
+15.0
 1
 1
 NIL
@@ -462,7 +567,7 @@ team-size
 team-size
 3
 9
-9.0
+6.0
 1
 1
 NIL
@@ -503,16 +608,16 @@ PLOT
 422
 plot 1
 iterations
-Mean value
+Score
 0.0
 10.0
 0.0
 10.0
 true
-true
+false
 "" ""
 PENS
-"best-mean" 1.0 0 -2674135 true "" "plot get-best-pool-mean"
+"group-score" 1.0 0 -2674135 true "" "plot group-score"
 
 MONITOR
 542
@@ -546,6 +651,109 @@ ifelse-value relay-mode? [\"Relay\"] [\"Tournament\"]
 0
 1
 11
+
+MONITOR
+617
+43
+731
+88
+Group Score Value
+group-score
+2
+1
+11
+
+BUTTON
+5
+361
+88
+394
+Go Grouo
+go-group current-group
+T
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+399
+89
+571
+122
+expert-amount
+expert-amount
+0
+team-size
+0.0
+1
+1
+NIL
+HORIZONTAL
+
+BUTTON
+5
+319
+125
+352
+Generate Group
+create-group expert-amount
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+133
+319
+274
+352
+Generate all Groups
+create-and-go-every-groups
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SWITCH
+402
+131
+533
+164
+stochasticity?
+stochasticity?
+1
+1
+-1000
+
+SLIDER
+539
+131
+711
+164
+error-probability
+error-probability
+0
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
