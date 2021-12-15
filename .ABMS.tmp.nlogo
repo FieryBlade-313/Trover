@@ -1,10 +1,13 @@
-extensions [array]
+extensions [array csv]
 
 breed [searchers searcher]
 
 searchers-own [heuristics at-peak?]
 
-globals [ initial-index terrain-points heuristic-permutation best-heuristics-pool debug-current-heuristics current-agent-index group-position group-score current-group group-stable?]
+globals [
+  initial-index terrain-points heuristic-permutation best-heuristics-pool debug-current-heuristics current-agent-index
+  group-position group-score current-group group-stable? dta? every-group-done? CSV-OUTPUT
+]
 
 to-report get-patch-by-index [index]
   report patch index 0
@@ -62,7 +65,8 @@ to setup
   clear-all
   set initial-index 0
   set current-group []
-  set best-heuristics-pool (list list ([]) (0))
+  set dta? false
+  set every-group-done? false
   setup-terrain
   set group-score first terrain-points
   set-patch-shades
@@ -149,7 +153,7 @@ to go-searcher
 
     ]
 
-    if item max-val-index terrain-points > item curr-index terrain-points or stochasticity? and random 101 <= error-probability  [
+    if item max-val-index terrain-points > item curr-index terrain-points or stochasticity? and ( random 100 + 1 ) <= error-probability  [
       move-searcher max-val-index
       set found true
     ]
@@ -159,7 +163,7 @@ to go-searcher
     if heuristics-index = heuristics-size [
       set found true
       set at-peak? true
-      show "DEBUG: No Better point in sight"
+      ;;show "DEBUG: No Better point in sight"
     ]
 
 
@@ -289,6 +293,7 @@ to-report get-best-pool-mean
 end
 
 to generate-best-heuristics
+  set best-heuristics-pool (list list ([]) (0))
   let temp-stochasticity? stochasticity?
   set stochasticity? false
   setup-searcher terrain-size
@@ -306,7 +311,8 @@ to generate-best-heuristics
 
     if list-equal current-heuristics terminal-heuristics
     [
-      set stochasticity? tru
+      set stochasticity? temp-stochasticity?
+      show "Best Heuristics calculated"
       stop
     ]
 
@@ -318,6 +324,7 @@ to create-group [elite-amount]
   ask searchers [die]
   set current-agent-index 0
   set group-position 0
+  set group-score first terrain-points
   set group-stable? false
   ask searchers [ set size 0 ]
   setup-searcher team-size
@@ -330,18 +337,46 @@ to create-group [elite-amount]
   ]
 
   ask first group [set size 1]
-  set current-group group
+  set current-group shuffle group
 end
 
 to create-and-go-every-groups
-  foreach n-values team-size [i -> i]
+  set dta? false
+  set CSV-OUTPUT []
+  set expert-amount 0
+  let diverse-score 0
+  let expert-score 0
+  let csv-end-index 0
+  foreach n-values (team-size + 1) [i -> i]
   [
     i ->
-    create-group i
+    set expert-amount i
+    create-group expert-amount
+    set CSV-OUTPUT insert-item csv-end-index CSV-OUTPUT (list group-score expert-amount)
+    set csv-end-index csv-end-index + 1
     while[not group-stable?] [
       go-group current-group
+      set CSV-OUTPUT insert-item csv-end-index CSV-OUTPUT (list group-score expert-amount)
+      set csv-end-index csv-end-index + 1
     ]
+    if i = 0
+    [
+      set diverse-score group-score
+    ]
+    if i = team-size
+    [
+      set expert-score group-score
+    ]
+    show (word "group " i " done")
   ]
+
+  if diverse-score >= expert-score
+  [
+    set dta? true
+  ]
+  csv:to-file (word "./Exports/in_between_values_" remove ":" date-and-time ".csv") CSV-OUTPUT
+  set every-group-done? true
+
 end
 
 to go-relay [agent]
@@ -367,7 +402,7 @@ to-report get-agent-best-location [agent]
       set max-val-index backward-index
     ]
 
-    if item max-val-index terrain-points > item curr-index terrain-points or stochasticity? and random 101 <= error-probability [
+    if item max-val-index terrain-points > item curr-index terrain-points or stochasticity? and ( random 100 + 1 ) <= error-probability [
       report max-val-index
     ]
 
@@ -435,7 +470,7 @@ end
 GRAPHICS-WINDOW
 13
 11
-571
+3321
 31
 -1
 -1
@@ -450,7 +485,7 @@ GRAPHICS-WINDOW
 1
 1
 0
-49
+299
 0
 0
 0
@@ -468,7 +503,7 @@ terrain-size
 terrain-size
 0
 2000
-50.0
+300.0
 50
 1
 NIL
@@ -500,7 +535,7 @@ smoothing-factor
 smoothing-factor
 0
 20
-0.0
+5.0
 1
 1
 NIL
@@ -530,7 +565,7 @@ max-heuristics-value
 max-heuristics-value
 1
 15
-15.0
+12.0
 1
 1
 NIL
@@ -567,7 +602,7 @@ team-size
 team-size
 3
 9
-6.0
+9.0
 1
 1
 NIL
@@ -614,10 +649,11 @@ Score
 0.0
 10.0
 true
-false
+true
 "" ""
 PENS
 "group-score" 1.0 0 -2674135 true "" "plot group-score"
+"expert-no" 1.0 1 -13840069 true "" "plot expert-amount * 10"
 
 MONITOR
 542
@@ -689,7 +725,7 @@ expert-amount
 expert-amount
 0
 team-size
-0.0
+9.0
 1
 1
 NIL
@@ -736,7 +772,7 @@ SWITCH
 164
 stochasticity?
 stochasticity?
-1
+0
 1
 -1000
 
@@ -749,7 +785,7 @@ error-probability
 error-probability
 0
 100
-10.0
+8.0
 1
 1
 NIL
@@ -1101,6 +1137,85 @@ NetLogo 6.2.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="param-sweep-1" repetitions="1" runMetricsEveryStep="true">
+    <setup>steup
+generate-best-heuristics</setup>
+    <go>create-and-go-every-groups</go>
+    <metric>group-score</metric>
+    <metric>dta?</metric>
+    <steppedValueSet variable="max-heuristics-value" first="5" step="5" last="15"/>
+    <enumeratedValueSet variable="height">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="terrain-size">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="error-probability" first="1" step="1" last="5"/>
+    <enumeratedValueSet variable="team-size">
+      <value value="3"/>
+      <value value="6"/>
+      <value value="9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="stochasticity?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="relay-mode?">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="expert-amount">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="smoothing-factor" first="0" step="4" last="20"/>
+  </experiment>
+  <experiment name="param-sweep-test" repetitions="2" runMetricsEveryStep="false">
+    <setup>setup
+generate-best-heuristics</setup>
+    <go>create-and-go-every-groups</go>
+    <exitCondition>every-group-done?</exitCondition>
+    <metric>group-score</metric>
+    <metric>dta?</metric>
+    <metric>expert-amount</metric>
+    <enumeratedValueSet variable="max-heuristics-value">
+      <value value="6"/>
+      <value value="9"/>
+      <value value="12"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="height">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="terrain-size">
+      <value value="300"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="error-probability">
+      <value value="0"/>
+      <value value="2"/>
+      <value value="8"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="team-size">
+      <value value="3"/>
+      <value value="6"/>
+      <value value="9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="stochasticity?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="relay-mode?">
+      <value value="true"/>
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="expert-amount">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="smoothing-factor">
+      <value value="0"/>
+      <value value="5"/>
+      <value value="10"/>
+      <value value="20"/>
+    </enumeratedValueSet>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default
